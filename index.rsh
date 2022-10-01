@@ -21,6 +21,12 @@ export const main = Reach.App(() => {
     acceptGame: Fun([UInt, UInt, Bool], Null),
   });
 
+  const informTimeout = () => {
+    each([A, B], () => {
+      interact.informTimeout();
+    });
+  };
+
   init();
 
   A.only(() => {
@@ -46,47 +52,59 @@ export const main = Reach.App(() => {
     .timeout(relativeTime(deadline), () => 
       closeTo(A));
 
-  var v = 
-    { matches: initialNumberMatches, whoPlays: alicePlaysFirst };
-  invariant( balance() == 2 * wager && v.matches >= 0);
-  while ( v.matches != 0 ) {
-    commit();
+  var [ matches, whoPlays ] = 
+     [ initialNumberMatches, alicePlaysFirst ];
+  invariant( balance() == 2 * wager && matches >= 0);
+  while ( matches != 0 ) {
+    const isAcceptable = (play) => (play <= 3 && play <= matches && play >= 1);
+    const doPlay = (play) => ([ matches - play, !whoPlays ]);
     each([A, B], () => {
-      interact.seeState(v.matches, v.whoPlays);
-    })
+      interact.seeState(matches, whoPlays);
+    });
 
-    A.only(() => {
-      const _playA = v.whoPlays ? 
-        Array.max(array(UInt, [interact.play(v.matches), 1]))
-          : 0;
-      const playA = declassify(Array.min(array(UInt, [_playA, 3, v.matches])));
-    });
-    A.publish(playA)
-      .timeout(relativeTime(deadline), () => closeTo(B));
-    require(playA <= 3 && playA <= v.matches && boolXor(playA > 0, !v.whoPlays), "Not acceptable play from Alice.");
-    commit();
+    if (whoPlays){
+      commit();
 
-    B.only(() => {
-      const _playB = !v.whoPlays ? 
-        Array.max(array(UInt, [interact.play(v.matches), 1]))
-          : 0;
-      const playB = declassify(Array.min(array(UInt, [_playB, 3, v.matches])));
-    });
-    B.publish(playB)
-      .timeout(relativeTime(deadline), () => closeTo(A));
-      require(playB <= 3 && playB <= v.matches && boolXor(playB > 0, v.whoPlays), "Not acceptable play from Bob.");
-    
-    assert(boolXor(playA == 0, playB == 0));
-    assert(playA + playB <= v.matches);
-    each([A, B], () => {
-      interact.seePlay(playA + playB, v.whoPlays);
-    });
-    v = {matches: v.matches - playA - playB, whoPlays: !v.whoPlays};
-    continue;
+      A.only(() => {
+        const play = whoPlays ? 
+          declassify(interact.play(matches))
+            : 0;
+        assume(isAcceptable(play));
+      });
+      A.publish(play)
+        .timeout(relativeTime(deadline), () => closeTo(B, informTimeout));
+      require(isAcceptable(play), "Not acceptable play from Alice.");
+
+      each([A, B], () => {
+        interact.seePlay(play, whoPlays);
+      });
+      [ matches, whoPlays ] = doPlay(play);
+      continue;
+  }
+  
+    else{
+      commit();
+
+      B.only(() => {
+        const play = !whoPlays ? 
+          declassify(interact.play(matches))
+            : 0;
+        assume(isAcceptable(play));
+      });
+      B.publish(play)
+        .timeout(relativeTime(deadline), () => closeTo(A, informTimeout));
+      require(isAcceptable(play), "Not acceptable play from Bob.");
+      
+      each([A, B], () => {
+        interact.seePlay(play, whoPlays);
+      });
+      [ matches, whoPlays ] = doPlay(play);
+      continue;
+    }
   }
 
-  assert(v.matches == 0);
-  const A_wins = !v.whoPlays;
+  assert(matches == 0);
+  const A_wins = !whoPlays;
   transfer(2 * wager).to(A_wins ? A : B);
   commit();
 

@@ -1,9 +1,16 @@
 import {loadStdlib, ask } from '@reach-sh/stdlib';
 import * as backend from './build/index.main.mjs';
 const stdlib = loadStdlib(process.env);
+stdlib.setProviderByName("TestNet");
 
-const startingBalance = stdlib.parseCurrency(100);
-const acc = await stdlib.newTestAccount(startingBalance);
+
+// const startingBalance = stdlib.parseCurrency(100);
+// const acc = await stdlib.newTestAccount(startingBalance);
+const mnemonic = await ask.ask(
+  `What is your account mnemonic?`,
+  (x => x)
+);
+const acc = await stdlib.newAccountFromMnemonic(mnemonic);
 const who = await ask.ask(
   "Are you Alice?",
   ask.yesno,
