@@ -52,11 +52,13 @@ export const main = Reach.App(() => {
     .timeout(relativeTime(deadline), () => 
       closeTo(A));
 
-  var [ matches, whoPlays ] = 
+  var [ matches, whoPlays ] = // whoPlays is true if A has to play
      [ initialNumberMatches, alicePlaysFirst ];
   invariant( balance() == 2 * wager && matches >= 0);
   while ( matches != 0 ) {
-    const isAcceptable = (play) => (play <= 3 && play <= matches && play >= 1);
+    const isAcceptable = (play) => (play <= 3
+                                  && play <= matches
+                                  && play >= 1);
     const doPlay = (play) => ([ matches - play, !whoPlays ]);
     each([A, B], () => {
       interact.seeState(matches, whoPlays);
