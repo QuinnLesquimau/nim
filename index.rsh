@@ -1,10 +1,12 @@
 'reach 0.1';
 
+const numberHeaps = 3;
+
 const Player = {
-  seeState: Fun([UInt, Bool], Null),
-  seePlay: Fun([UInt, Bool], Null),
+  seeState: Fun([Array(UInt, numberHeaps), Bool], Null),
+  seePlay: Fun([UInt, UInt, Bool], Null),
   informTimeout: Fun([], Null),
-  play: Fun([UInt], UInt),
+  play: Fun([Array(UInt, numberHeaps)], Tuple(UInt, UInt)),
 };
 
 export const main = Reach.App(() => {
@@ -12,13 +14,13 @@ export const main = Reach.App(() => {
     ...Player,
     wager: UInt,
     alicePlaysFirst: Bool,
-    initialNumberMatches: UInt,
+    initialNumberMatches: Array(UInt, numberHeaps),
     deadline: UInt,
   });
 
   const B = Participant('Bob', {
     ...Player,
-    acceptGame: Fun([UInt, UInt, Bool], Null),
+    acceptGame: Fun([UInt, Array(UInt, numberHeaps), Bool], Null),
   });
 
   const informTimeout = () => {
@@ -54,12 +56,13 @@ export const main = Reach.App(() => {
 
   var [ matches, whoPlays ] = // whoPlays is true if A has to play
      [ initialNumberMatches, alicePlaysFirst ];
-  invariant( balance() == 2 * wager && matches >= 0);
+  invariant( balance() == 2 * wager && matches.all(x => x >= 0));
   while ( matches != 0 ) {
-    const isAcceptable = (play) => (play <= 3
-                                  && play <= matches
-                                  && play >= 1);
-    const doPlay = (play) => ([ matches - play, !whoPlays ]);
+    const isAcceptable = (matchesRemoved, index) => (matchesRemoved <= 3
+                                  && index < numberHeaps
+                                  && matchesRemoved <= matches[index]
+                                  && matchesRemoved >= 1);
+    const doPlay = (matchesRemoved, index) => ([ matches.set(index, matches[index] - matchesRemoved), !whoPlays ]);
     each([A, B], () => {
       interact.seeState(matches, whoPlays);
     });
@@ -68,44 +71,39 @@ export const main = Reach.App(() => {
       commit();
 
       A.only(() => {
-        const play = whoPlays ? 
-          declassify(interact.play(matches))
-            : 0;
-        assume(isAcceptable(play));
+        const [matchesRemoved, index] = declassify(interact.play(matches));
+        assume(isAcceptable(matchesRemoved, index));
       });
-      A.publish(play)
+      A.publish(matchesRemoved, index)
         .timeout(relativeTime(deadline), () => closeTo(B, informTimeout));
-      require(isAcceptable(play), "Not acceptable play from Alice.");
+      require(isAcceptable(matchesRemoved, index), "Not acceptable play from Alice.");
 
       each([A, B], () => {
-        interact.seePlay(play, whoPlays);
+        interact.seePlay(matchesRemoved, index, whoPlays);
       });
-      [ matches, whoPlays ] = doPlay(play);
+      [ matches, whoPlays ] = doPlay(matchesRemoved, index);
       continue;
-  }
+    }
   
     else{
       commit();
 
       B.only(() => {
-        const play = !whoPlays ? 
-          declassify(interact.play(matches))
-            : 0;
-        assume(isAcceptable(play));
+        const [matchesRemoved, index] = declassify(interact.play(matches));
+        assume(isAcceptable(matchesRemoved, index));
       });
-      B.publish(play)
+      B.publish(matchesRemoved, index)
         .timeout(relativeTime(deadline), () => closeTo(A, informTimeout));
-      require(isAcceptable(play), "Not acceptable play from Bob.");
-      
+      require(isAcceptable(matchesRemoved, index), "Not acceptable play from Bob.");
+
       each([A, B], () => {
-        interact.seePlay(play, whoPlays);
+        interact.seePlay(matchesRemoved, index, whoPlays);
       });
-      [ matches, whoPlays ] = doPlay(play);
+      [ matches, whoPlays ] = doPlay(matchesRemoved, index);
       continue;
     }
   }
-
-  assert(matches == 0);
+  assert(matches.all(x => x == 0));
   const A_wins = !whoPlays;
   transfer(2 * wager).to(A_wins ? A : B);
   commit();
