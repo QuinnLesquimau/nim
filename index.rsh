@@ -1,6 +1,6 @@
 'reach 0.1';
 
-const numberHeaps = 3;
+const numberHeaps = 3; // Need to be the same as in the frontend
 
 const Player = {
   seeState: Fun([Array(UInt, numberHeaps), Bool], Null),
@@ -57,7 +57,7 @@ export const main = Reach.App(() => {
   var [ matches, whoPlays ] = // whoPlays is true if A has to play
      [ initialNumberMatches, alicePlaysFirst ];
   invariant( balance() == 2 * wager && matches.all(x => x >= 0));
-  while ( matches != 0 ) {
+  while ( matches.any(x => x > 0) ) {
     const isAcceptable = (matchesRemoved, index) => (matchesRemoved <= 3
                                   && index < numberHeaps
                                   && matchesRemoved <= matches[index]
