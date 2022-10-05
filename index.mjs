@@ -3,9 +3,10 @@ import * as backend from './build/index.main.mjs';
 const stdlib = loadStdlib(process.env);
 stdlib.setProviderByName("TestNet");
 
+const numberHeaps = 3; // need to be the same as in the backend
 
-// const startingBalance = stdlib.parseCurrency(100);
-// const acc = await stdlib.newTestAccount(startingBalance);
+/* const startingBalance = stdlib.parseCurrency(100);
+const acc = await stdlib.newTestAccount(startingBalance); */
 const mnemonic = await ask.ask(
   `What is your account mnemonic?`,
   (x => x)
@@ -32,10 +33,10 @@ if (who == "Alice"){
 
 const player = {
   seeState: (matches, alicePlays) => {
-    console.log(`There are ${matches} matches, ${alicePlays ? "Alice" : "Bob"} has to play.`);
+    console.log(`The heaps are ${matches}, ${alicePlays ? "Alice" : "Bob"} has to play.`);
   },
-  seePlay: (matches, alicePlays) => {
-    console.log(`${alicePlays ? "Alice" : "Bob"} takes ${matches} matches.`);
+  seePlay: (matches, index, alicePlays) => {
+    console.log(`${alicePlays ? "Alice" : "Bob"} takes ${matches} matches at the heap ${index}.`);
   },
   informTimeout: () => {
     console.log("There is a timeout.");
@@ -46,11 +47,12 @@ const player = {
       "How many matches do you want to take (1, 2, 3)?",
       Number
     );
-    if (matches < 1 || matches > 3 || matches > totalMatches) {
-      throw Error("error: not an acceptable number of matches.");
-    }
-    return matches;
-  },
+    const index = await ask.ask(
+      "On which heap do you want to remove them?",
+      Number
+    );
+    return [matches, index];
+  }
 };
 
 const fmt = (x) => stdlib.formatCurrency(x, 4);
@@ -69,10 +71,11 @@ if (who == "Alice"){
     "Do you want to play first?",
     ask.yesno
   );
-  player.initialNumberMatches = await ask.ask(
-    "How many matches are there at the beginning?",
-    Number
+  const initialNumberMatches = await ask.ask(
+    `How many matches are there at the beginning? Separate the heaps by commas.\nThere are ${numberHeaps} heaps.`,
+    (x => x)
   );
+  player.initialNumberMatches = initialNumberMatches.split(",").map(Number);
 
 } else {
   player.acceptGame = async (
@@ -81,7 +84,7 @@ if (who == "Alice"){
                               alicePlaysFirst
   ) => {
     const accepted = await ask.ask(
-      `Do you accept the wager of ${fmt(wager)} for a game with ${matches} matches, where ${alicePlaysFirst ? "Alice plays" : "you play"} first?`,
+      `Do you accept the wager of ${fmt(wager)} for a game with matches ${matches}, where ${alicePlaysFirst ? "Alice plays" : "you play"} first?`,
       ask.yesno
     );
     if (!accepted) {
