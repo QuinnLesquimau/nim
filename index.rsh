@@ -1,6 +1,6 @@
 'reach 0.1';
 
-const numberHeaps = 3; // Need to be the same as in the frontend
+export const numberHeaps = 3;
 
 const Player = {
   seeState: Fun([Array(UInt, numberHeaps), Bool], Null),

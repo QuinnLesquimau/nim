@@ -3,7 +3,7 @@ import * as backend from './build/index.main.mjs';
 const stdlib = loadStdlib(process.env);
 stdlib.setProviderByName("TestNet");
 
-const numberHeaps = 3; // need to be the same as in the backend
+const numberHeaps = backend.getExports(stdlib).numberHeaps;
 
 /* const startingBalance = stdlib.parseCurrency(100);
 const acc = await stdlib.newTestAccount(startingBalance); */
